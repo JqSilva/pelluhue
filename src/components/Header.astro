@@ -1,0 +1,39 @@
+---
+const currentPath = Astro.url.pathname;
+---
+
+<header class="bg-slate-900 text-white shadow-lg">
+  <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+    
+    <a href="/" class="text-xl font-bold flex items-center gap-2 hover:text-blue-300 transition">
+      🏡 Cabañas Pelluhue
+    </a>
+
+    <nav class="flex gap-6 text-sm font-medium">
+      <a href="/" 
+         class={`hover:text-blue-300 transition ${currentPath === '/' ? 'text-blue-400 border-b-2 border-blue-400' : ''}`}>
+         Inicio
+      </a>
+      
+      <a href="/cuotas" 
+         class={`hover:text-blue-300 transition ${currentPath === '/cuotas' ? 'text-blue-400 border-b-2 border-blue-400' : ''}`}>
+         Cuotas & Pagos
+      </a>
+      
+      <a href="/gastos" 
+         class={`hover:text-blue-300 transition ${currentPath === '/gastos' ? 'text-blue-400 border-b-2 border-blue-400' : ''}`}>
+         Gastos Comunes
+      </a>
+
+      <a href="/familias" 
+         class={`hover:text-blue-300 transition ${currentPath === '/familias' ? 'text-blue-400 border-b-2 border-blue-400' : ''}`}>
+         Familias
+      </a>
+
+      <a href="/historia" 
+         class={`hover:text-blue-300 transition ${currentPath === '/historia' ? 'text-blue-400 border-b-2 border-blue-400' : ''}`}>
+         Historia
+      </a>
+    </nav>
+  </div>
+</header>
