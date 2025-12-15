@@ -1,0 +1,219 @@
+---
+import Layout from '../layouts/Layout.astro';
+import db from '../db/client';
+
+// --- CONFIGURACIÓN ---
+const ANIO = 2025;
+const CUOTA_ANUAL = 180000;
+const MES_ACTUAL_INDEX = new Date().getMonth(); 
+const CUOTA_MENSUAL = CUOTA_ANUAL / 12; 
+
+// --- CRUD ---
+if (Astro.request.method === "POST") {
+  try {
+    const data = await Astro.request.formData();
+    const accion = data.get("accion"); // 
+
+    // CREAR PAGO
+    if (accion === 'crear') {
+        const familia_id = data.get("familia_id");
+        const monto = data.get("monto");
+        const mesSeleccionado = data.get("mes_pago"); 
+        const fechaCompleta = `${mesSeleccionado}-01`; 
+
+        const insert = db.prepare('INSERT INTO pagos (familia_id, monto, fecha, tipo) VALUES (?, ?, ?, ?)');
+        insert.run(familia_id, monto, fechaCompleta, 'CUOTA');
+    }
+
+    // ELIMINAR PAGO
+    if (accion === 'eliminar') {
+        const idEliminar = data.get("pago_id");
+        db.prepare('DELETE FROM pagos WHERE id = ?').run(idEliminar);
+    }
+    
+  } catch (error) {
+    console.error("Error en operación:", error);
+  }
+  // evitar duplicados
+  return Astro.redirect('/cuotas'); 
+}
+
+// --- LECTURA ---
+
+// Datos para la Matriz 
+const familias = db.prepare('SELECT * FROM familias').all();
+const pagosAnio = db.prepare(`SELECT * FROM pagos WHERE strftime('%Y', fecha) = ?`).all(ANIO.toString());
+
+const reporte = familias.map(f => {
+    const susPagos = pagosAnio.filter(p => p.familia_id === f.id);
+    let filaMeses = Array(12).fill(0);
+    let totalPagado = 0;
+
+    susPagos.forEach(p => {
+        const mesIndex = new Date(p.fecha).getUTCMonth(); 
+        filaMeses[mesIndex] += p.monto;
+        totalPagado += p.monto;
+    });
+
+    const debioPagarHastaHoy = (MES_ACTUAL_INDEX + 1) * CUOTA_MENSUAL;
+    let deudaActual = debioPagarHastaHoy - totalPagado;
+    if (deudaActual < 0) deudaActual = 0; 
+    if (totalPagado >= CUOTA_ANUAL) deudaActual = 0;
+
+    return { ...f, meses: filaMeses, totalPagado, deudaTotal: CUOTA_ANUAL - totalPagado, deudaActual };
+});
+
+// Datos para el Historial
+const historialPagos = db.prepare(`
+    SELECT p.id, p.monto, p.fecha, f.nombre as familia_nombre 
+    FROM pagos p 
+    JOIN familias f ON p.familia_id = f.id 
+    WHERE strftime('%Y', p.fecha) = ?
+    ORDER BY p.id DESC
+`).all(ANIO.toString());
+
+const mesesNombre = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+---
+
+<Layout title="Control de Cuotas">
+    <div class="min-h-screen bg-gray-50 py-10 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-[90rem] mx-auto">
+            
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Gestión de Cuotas {ANIO}</h1>
+                    <p class="text-sm text-gray-500 mt-1">Selecciona una vista para gestionar.</p>
+                </div>
+                
+                <div class="flex gap-3 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+                    <button onclick="cambiarVista('tabla')" class="px-4 py-2 text-sm font-medium rounded-md transition-colors text-gray-700 hover:bg-gray-100 focus:bg-gray-200" id="btn-ver-tabla">
+                        📊 Ver Tabla
+                    </button>
+                    <button onclick="cambiarVista('historial')" class="px-4 py-2 text-sm font-medium rounded-md transition-colors text-gray-700 hover:bg-gray-100 focus:bg-gray-200" id="btn-ver-historial">
+                        📝 Historial y Borrar
+                    </button>
+                    <button onclick="cambiarVista('formulario')" class="px-4 py-2 text-sm font-medium rounded-md text-white bg-slate-900 hover:bg-slate-800 shadow-sm" id="btn-ver-form">
+                        + Registrar Pago
+                    </button>
+                </div>
+            </div>
+
+            <div id="vista-tabla" class="vista-section bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all duration-300">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-gray-50/50 border-b border-gray-200">
+                            <tr>
+                                <th class="py-4 pl-6 pr-3 font-semibold text-gray-500 sticky left-0 bg-gray-50 z-10 border-r">Familia</th>
+                                {mesesNombre.map(mes => <th class="px-2 py-4 text-center text-gray-400 text-xs uppercase">{mes}</th>)}
+                                <th class="px-4 py-4 text-center text-gray-500 sticky border-l bg-gray-50">Pagado</th>
+                                <th class="px-4 py-4 text-center text-red-600 bg-red-50/30">Deuda</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 bg-white">
+                            {reporte.map(fila => (
+                                <tr class="hover:bg-gray-50/60">
+                                    <td class="py-4 pl-6 pr-3 font-medium text-gray-900 sticky left-0 bg-white border-r">{fila.nombre}</td>
+                                    {fila.meses.map(m => (
+                                        <td class="px-2 py-4 text-center font-mono text-xs">
+                                            {m > 0 ? <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">${(m/1000).toFixed(0)}k</span> : <span class="text-gray-300">•</span>}
+                                        </td>
+                                    ))}
+                                    <td class="px-4 py-4 font-mono text-center bg-gray-50/30 font-bold sticky bg-white border-l ">${fila.totalPagado.toLocaleString('es-CL')}</td>
+                                    <td class="px-4 py-4 font-mono text-center text-red-600">${fila.deudaActual.toLocaleString('es-CL')}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="vista-historial" class="vista-section hidden bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4">Historial de Transacciones (Últimos movimientos)</h2>
+                <div class="overflow-hidden rounded-lg border border-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Familia</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {historialPagos.map(pago => (
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{pago.fecha}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{pago.familia_nombre}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-green-600">$ {pago.monto.toLocaleString('es-CL')}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                                        <form method="POST">
+                                            <input type="hidden" name="accion" value="eliminar" />
+                                            <input type="hidden" name="pago_id" value={pago.id} />
+                                            <button onclick="return confirm('¿Borrar este pago? Esta acción recalculará la deuda.')" class="text-red-600 hover:text-red-900 text-xs font-bold bg-red-50 px-3 py-1 rounded hover:bg-red-100 transition">
+                                                Eliminar
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-xs text-gray-500 mt-4">* Para editar un pago, elimínalo y regístralo nuevamente.</p>
+            </div>
+
+            <div id="vista-formulario" class="vista-section hidden max-w-xl mx-auto mt-8">
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
+                    <h2 class="text-xl font-bold text-gray-900 mb-6">Registrar Nuevo Pago</h2>
+                    <form method="POST" class="space-y-5">
+                        <input type="hidden" name="accion" value="crear" /> <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Familia</label>
+                            <select name="familia_id" class="block w-full rounded-lg border-gray-300 shadow-sm p-2.5 border">
+                                {familias.map(f => <option value={f.id}>{f.nombre}</option>)}
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Mes a pagar</label>
+                                <input type="month" name="mes_pago" value={`${ANIO}-${String(MES_ACTUAL_INDEX + 1).padStart(2, '0')}`} class="block w-full rounded-lg border-gray-300 shadow-sm p-2.5 border" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Monto ($)</label>
+                                <input type="number" name="monto" placeholder="15000" class="block w-full rounded-lg border-gray-300 shadow-sm p-2.5 border" />
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full py-3 px-4 rounded-lg text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 transition">
+                            Guardar Pago
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</Layout>
+
+<script is:inline>
+    // cambiar pestañas
+    function cambiarVista(nombreVista) {
+        // Ocultar todas las secciones
+        document.querySelectorAll('.vista-section').forEach(el => el.classList.add('hidden'));
+        
+        // Mostrar la seleccionada
+        document.getElementById(`vista-${nombreVista}`).classList.remove('hidden');
+
+        // Restablecer estilos
+        const btns = ['btn-ver-tabla', 'btn-ver-historial', 'btn-ver-form'];
+        btns.forEach(id => {
+            const btn = document.getElementById(id);
+            btn.classList.remove('bg-gray-200', 'font-bold');
+            if(id === 'btn-ver-form') { /* Mantener estilo dark */ }
+            else { btn.classList.add('hover:bg-gray-100'); }
+        });
+
+        // Activar el actual 
+        if (nombreVista !== 'formulario') {
+             document.getElementById(`btn-ver-${nombreVista}`).classList.add('bg-gray-200', 'font-bold');
+        }
+    }
+</script>
