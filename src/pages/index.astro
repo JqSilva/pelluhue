@@ -4,50 +4,38 @@ import Layout from '../layouts/Layout.astro';
 
 <Layout title="Inicio | Cabañas Pelluhue">
   
-  <section class="relative bg-slate-800 text-white py-24">
-    <div class="absolute inset-0 overflow-hidden opacity-20">
-        <img src="/img/pelluhue-bg.jpg" class="w-full h-full object-cover" alt="Fondo" /> 
-        </div>
+  <section class="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-900">
+    
+    <div class="absolute inset-0 z-0">
+        <img 
+            src="/img/cabaña.png" 
+            class="w-full h-full object-cover opacity-60" 
+            alt="Vista de Cabañas Pelluhue" 
+        />
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/50 to-slate-900/30"></div>
+    </div>
 
-    <div class="relative max-w-4xl mx-auto px-6 text-center">
-      <h1 class="text-5xl font-bold mb-6 tracking-tight">Administración Cabañas Pelluhue</h1>
-      <p class="text-xl text-gray-300 mb-10 max-w-2xl mx-auto">
-        Plataforma de gestión para nuestra comunidad. Control de cuotas, registro de gastos y transparencia para todas las familias.
-      </p>
+    <div class="relative z-10 max-w-5xl mx-auto px-6 text-center">
       
-      <div class="flex justify-center gap-4">
-        <a href="/cuotas" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105">
-          Gestionar Cuotas
-        </a>
-        <a href="/gastos" class="bg-white hover:bg-gray-100 text-slate-900 font-bold py-3 px-8 rounded-full shadow-lg transition">
-          Ver Gastos
+      <h1 class="text-6xl md:text-7xl font-bold text-white mb-2 tracking-tight drop-shadow-lg">
+        Cabañas Pelluhue
+      </h1>
+      
+      <h2 class="text-2xl md:text-3xl font-light text-slate-300 mb-12 tracking-widest uppercase">
+        Temporada {new Date().getFullYear()}
+      </h2>
+      
+      <div class="flex justify-center">
+        <a href="/cuotas" 
+           class="group relative inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold py-4 px-10 rounded-full transition-all duration-300 shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] hover:-translate-y-1">
+           <span>Gestionar Cuotas</span>
+           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 transition-transform group-hover:translate-x-1" viewBox="0 0 20 20" fill="currentColor">
+             <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+           </svg>
         </a>
       </div>
+
     </div>
   </section>
 
-  <section class="py-16 max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
-    
-    <div class="bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition border border-gray-100">
-      <div class="text-4xl mb-4">💰</div>
-      <h3 class="text-xl font-bold mb-2">Estado de Cuentas</h3>
-      <p class="text-gray-600 mb-4">Revisa quién ha pagado la cuota anual y registra nuevos ingresos de las familias.</p>
-      <a href="/cuotas" class="text-blue-600 font-semibold hover:underline">Ir a Cuotas &rarr;</a>
-    </div>
-
-    <div class="bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition border border-gray-100">
-      <div class="text-4xl mb-4">🧾</div>
-      <h3 class="text-xl font-bold mb-2">Gastos Operativos</h3>
-      <p class="text-gray-600 mb-4">Registro de luz, agua, mantenciones y gastos extraordinarios del recinto.</p>
-      <a href="/gastos" class="text-blue-600 font-semibold hover:underline">Ir a Gastos &rarr;</a>
-    </div>
-
-    <div class="bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition border border-gray-100">
-      <div class="text-4xl mb-4">📖</div>
-      <h3 class="text-xl font-bold mb-2">Nuestra Historia</h3>
-      <p class="text-gray-600 mb-4">El origen de la asociación de familias y documentos importantes.</p>
-      <a href="/historia" class="text-blue-600 font-semibold hover:underline">Leer Historia &rarr;</a>
-    </div>
-
-  </section>
 </Layout>

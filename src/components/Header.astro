@@ -1,39 +1,34 @@
 ---
 const currentPath = Astro.url.pathname;
+
+// Helper para clases activas: Si es la ruta actual, usa color ámbar y negrita.
+const activeClass = "text-amber-400 font-semibold after:scale-x-100";
+const inactiveClass = "text-slate-200 hover:text-white after:scale-x-0 hover:after:scale-x-100";
 ---
 
-<header class="bg-slate-900 text-white shadow-lg">
-  <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+<header class="fixed top-0 left-0 w-full z-50 bg-slate-900/80 backdrop-blur-md border-b border-white/10 transition-all duration-300">
+  <div class="max-w-6xl mx-auto px-6 h-20 flex justify-between items-center">
     
-    <a href="/" class="text-xl font-bold flex items-center gap-2 hover:text-blue-300 transition">
-      🏡 Cabañas Pelluhue
+    <a href="/" class="text-xl font-bold tracking-tight text-white hover:opacity-80 transition">
+      Cabañas Pelluhue
     </a>
 
-    <nav class="flex gap-6 text-sm font-medium">
-      <a href="/" 
-         class={`hover:text-blue-300 transition ${currentPath === '/' ? 'text-blue-400 border-b-2 border-blue-400' : ''}`}>
-         Inicio
-      </a>
-      
-      <a href="/cuotas" 
-         class={`hover:text-blue-300 transition ${currentPath === '/cuotas' ? 'text-blue-400 border-b-2 border-blue-400' : ''}`}>
-         Cuotas & Pagos
-      </a>
-      
-      <a href="/gastos" 
-         class={`hover:text-blue-300 transition ${currentPath === '/gastos' ? 'text-blue-400 border-b-2 border-blue-400' : ''}`}>
-         Gastos Comunes
-      </a>
-
-      <a href="/familias" 
-         class={`hover:text-blue-300 transition ${currentPath === '/familias' ? 'text-blue-400 border-b-2 border-blue-400' : ''}`}>
-         Familias
-      </a>
-
-      <a href="/historia" 
-         class={`hover:text-blue-300 transition ${currentPath === '/historia' ? 'text-blue-400 border-b-2 border-blue-400' : ''}`}>
-         Historia
-      </a>
+    <nav class="hidden md:flex gap-8 text-sm font-medium tracking-wide">
+      {['Inicio', 'Cuotas', 'Gastos', 'Familias', 'Historia'].map((text) => {
+        const href = text === 'Inicio' ? '/' : `/${text.toLowerCase()}`;
+        const isActive = currentPath === href;
+        
+        return (
+          <a href={href} 
+             class={`relative py-1 transition-colors duration-300 
+             after:content-[''] after:absolute after:left-0 after:bottom-0 after:w-full after:h-[2px] 
+             after:bg-amber-400 after:transition-transform after:duration-300 after:origin-left
+             ${isActive ? activeClass : inactiveClass}`}>
+            {text === 'Cuotas' ? 'Cuotas & Pagos' : text}
+          </a>
+        );
+      })}
     </nav>
-  </div>
+
+    </div>
 </header>

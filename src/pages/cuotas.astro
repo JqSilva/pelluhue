@@ -56,6 +56,7 @@ interface PagoHistorial extends Pago {
   familia_nombre: string;
 }
 
+
 // --- LECTURA ---
 
 // Datos para la Matriz 
@@ -81,6 +82,21 @@ const reporte = familias.map(f => {
     return { ...f, meses: filaMeses, totalPagado, deudaTotal: CUOTA_ANUAL - totalPagado, deudaActual };
 });
 
+const totalesPorMes = Array(12).fill(0);
+let granTotalPagado = 0;
+let granTotalDeuda = 0;
+
+reporte.forEach(fila => {
+    // Sumar cada mes individualmente
+    fila.meses.forEach((monto, index) => {
+        totalesPorMes[index] += monto;
+    });
+    // Sumar a los grandes totales
+    granTotalPagado += fila.totalPagado;
+    granTotalDeuda += fila.deudaActual;
+});
+
+
 // Datos para el Historial
 const historialPagos = db.prepare(`
     SELECT p.id, p.monto, p.fecha, f.nombre as familia_nombre 
@@ -94,12 +110,12 @@ const mesesNombre = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Se
 ---
 
 <Layout title="Control de Cuotas">
-    <div class="min-h-screen bg-gray-50 py-10 px-4 sm:px-6 lg:px-8">
+    <div class="min-h-screen bg-gray-50 py-10 pt-40 px-4 sm:px-6 lg:px-8">
         <div class="max-w-[90rem] mx-auto">
             
             <div class="flex justify-between items-center mb-8">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Gestión de Cuotas {ANIO}</h1>
+                    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Cuotas {ANIO}</h1>
                     <p class="text-sm text-gray-500 mt-1">Selecciona una vista para gestionar.</p>
                 </div>
                 
@@ -115,7 +131,7 @@ const mesesNombre = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Se
                     </button>
                 </div>
             </div>
-
+            <!-- Tabla -->
             <div id="vista-tabla" class="vista-section bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all duration-300">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left">
@@ -140,11 +156,25 @@ const mesesNombre = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Se
                                     <td class="px-4 py-4 font-mono text-center text-red-600">${fila.deudaActual.toLocaleString('es-CL')}</td>
                                 </tr>
                             ))}
+                            
                         </tbody>
+                        <tfoot>
+                            <tr class="bg-gray-50/50 border-t border-gray-200">
+                                <th class="py-4 pl-6 pr-3 font-bold  sticky left-0 bg-gray-50 border-r">TOTAL</th>
+                                {totalesPorMes.map(totalMes => (
+                                    <th class="px-2 py-4 text-center text-gray-800 font-bold text-xs">
+                                        {totalMes > 0 ? `$${totalMes.toLocaleString('es-CL')}` : '-'}
+                                    </th>
+                                ))}
+
+                                <th class="px-4 py-4 text-center font-bold sticky border-l bg-gray-50">${granTotalPagado.toLocaleString('es-CL')}</th>
+                                <th class="px-4 py-4 text-center text-red-600 font-semibold bg-red-50/30">${granTotalDeuda.toLocaleString('es-CL')}</th>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>
-
+            <!-- Historial de pagos -->
             <div id="vista-historial" class="vista-section hidden bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h2 class="text-lg font-bold text-gray-800 mb-4">Historial de Transacciones (Últimos movimientos)</h2>
                 <div class="overflow-hidden rounded-lg border border-gray-200">
