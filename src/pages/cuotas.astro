@@ -38,11 +38,29 @@ if (Astro.request.method === "POST") {
   return Astro.redirect('/cuotas'); 
 }
 
+// INTERFACES
+interface Familia {
+  id: number;
+  nombre: string;
+}
+
+interface Pago {
+  id: number;
+  familia_id: number;
+  monto: number;
+  fecha: string;
+  tipo?: string;
+}
+
+interface PagoHistorial extends Pago {
+  familia_nombre: string;
+}
+
 // --- LECTURA ---
 
 // Datos para la Matriz 
-const familias = db.prepare('SELECT * FROM familias').all();
-const pagosAnio = db.prepare(`SELECT * FROM pagos WHERE strftime('%Y', fecha) = ?`).all(ANIO.toString());
+const familias = db.prepare('SELECT * FROM familias').all() as Familia[];
+const pagosAnio = db.prepare(`SELECT * FROM pagos WHERE strftime('%Y', fecha) = ?`).all(ANIO.toString()) as Pago[];
 
 const reporte = familias.map(f => {
     const susPagos = pagosAnio.filter(p => p.familia_id === f.id);
@@ -70,7 +88,7 @@ const historialPagos = db.prepare(`
     JOIN familias f ON p.familia_id = f.id 
     WHERE strftime('%Y', p.fecha) = ?
     ORDER BY p.id DESC
-`).all(ANIO.toString());
+`).all(ANIO.toString()) as PagoHistorial[];
 
 const mesesNombre = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 ---
@@ -115,7 +133,7 @@ const mesesNombre = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Se
                                     <td class="py-4 pl-6 pr-3 font-medium text-gray-900 sticky left-0 bg-white border-r">{fila.nombre}</td>
                                     {fila.meses.map(m => (
                                         <td class="px-2 py-4 text-center font-mono text-xs">
-                                            {m > 0 ? <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">${(m/1000).toFixed(0)}k</span> : <span class="text-gray-300">•</span>}
+                                            {m > 0 ? <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">${m.toLocaleString('es-CL')}</span> : <span class="text-gray-300">•</span>}
                                         </td>
                                     ))}
                                     <td class="px-4 py-4 font-mono text-center bg-gray-50/30 font-bold sticky bg-white border-l ">${fila.totalPagado.toLocaleString('es-CL')}</td>

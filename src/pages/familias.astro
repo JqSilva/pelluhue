@@ -84,7 +84,7 @@ const familias = db.prepare('SELECT * FROM familias ORDER BY id ASC').all();
                             <li class="p-6 text-center text-gray-500 italic">No hay familias registradas aún.</li>
                         )}
 
-                        {familias.map((familia) => (
+                        {familias.map((familia:{id:number,nombre:string}) => (
                             <li class="p-4 hover:bg-gray-50 transition flex justify-between items-start group">
                                 <div>
                                     <p class="font-medium text-gray-900 text-lg">{familia.nombre}</p>
