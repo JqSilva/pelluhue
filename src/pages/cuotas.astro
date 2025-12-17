@@ -8,11 +8,11 @@ const CUOTA_ANUAL = 180000;
 const MES_ACTUAL_INDEX = new Date().getMonth(); 
 const CUOTA_MENSUAL = CUOTA_ANUAL / 12; 
 
-// --- CRUD ---
+// --- CRUD (Lógica intacta) ---
 if (Astro.request.method === "POST") {
   try {
     const data = await Astro.request.formData();
-    const accion = data.get("accion"); // 
+    const accion = data.get("accion"); 
 
     // CREAR PAGO
     if (accion === 'crear') {
@@ -34,32 +34,15 @@ if (Astro.request.method === "POST") {
   } catch (error) {
     console.error("Error en operación:", error);
   }
-  // evitar duplicados
   return Astro.redirect('/cuotas'); 
 }
 
 // INTERFACES
-interface Familia {
-  id: number;
-  nombre: string;
-}
-
-interface Pago {
-  id: number;
-  familia_id: number;
-  monto: number;
-  fecha: string;
-  tipo?: string;
-}
-
-interface PagoHistorial extends Pago {
-  familia_nombre: string;
-}
-
+interface Familia { id: number; nombre: string; }
+interface Pago { id: number; familia_id: number; monto: number; fecha: string; tipo?: string; }
+interface PagoHistorial extends Pago { familia_nombre: string; }
 
 // --- LECTURA ---
-
-// Datos para la Matriz 
 const familias = db.prepare('SELECT * FROM familias').all() as Familia[];
 const pagosAnio = db.prepare(`SELECT * FROM pagos WHERE strftime('%Y', fecha) = ?`).all(ANIO.toString()) as Pago[];
 
@@ -82,22 +65,18 @@ const reporte = familias.map(f => {
     return { ...f, meses: filaMeses, totalPagado, deudaTotal: CUOTA_ANUAL - totalPagado, deudaActual };
 });
 
+// Cálculo de Totales Verticales
 const totalesPorMes = Array(12).fill(0);
 let granTotalPagado = 0;
 let granTotalDeuda = 0;
 
 reporte.forEach(fila => {
-    // Sumar cada mes individualmente
-    fila.meses.forEach((monto, index) => {
-        totalesPorMes[index] += monto;
-    });
-    // Sumar a los grandes totales
+    fila.meses.forEach((monto, index) => { totalesPorMes[index] += monto; });
     granTotalPagado += fila.totalPagado;
     granTotalDeuda += fila.deudaActual;
 });
 
-
-// Datos para el Historial
+// Datos Historial
 const historialPagos = db.prepare(`
     SELECT p.id, p.monto, p.fecha, f.nombre as familia_nombre 
     FROM pagos p 
@@ -110,94 +89,110 @@ const mesesNombre = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Se
 ---
 
 <Layout title="Control de Cuotas">
-    <div class="min-h-screen bg-gray-50 py-10 pt-40 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-[90rem] mx-auto">
+    
+    <div class="relative min-h-screen bg-gray-50">
+        
+        <div class="fixed inset-0 z-0">
+        <img src="/img/cabaña.png" class="w-full h-full object-cover" alt="Fondo Cabañas" />
+        <div class="absolute inset-0 bg-[#17253E]/85 backdrop-blur-xl"></div>
+        </div>
+
+        <div class="relative z-10 max-w-[95rem] mx-auto px-4 sm:px-6 lg:px-8 pt-40">
             
-            <div class="flex justify-between items-center mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Cuotas {ANIO}</h1>
-                    <p class="text-sm text-gray-500 mt-1">Selecciona una vista para gestionar.</p>
+                    <h1 class="text-4xl text-white font-anton tracking-wide uppercase drop-shadow-md">
+                        Gestión de Cuotas {ANIO}
+                    </h1>
+                    <p class="text-blue-100 mt-2 text-lg font-light">Resumen financiero y estado de pagos por familia.</p>
                 </div>
                 
-                <div class="flex gap-3 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
-                    <button onclick="cambiarVista('tabla')" class="px-4 py-2 text-sm font-medium rounded-md transition-colors text-gray-700 hover:bg-gray-100 focus:bg-gray-200" id="btn-ver-tabla">
+                <div class="flex gap-2 bg-white/10 backdrop-blur-md p-1.5 rounded-xl border border-white/20 shadow-xl">
+                    <button onclick="cambiarVista('tabla')" id="btn-ver-tabla" class="px-5 py-2.5 text-sm font-medium rounded-lg transition-all text-white hover:bg-white/20 hover:cursor-pointer">
                         📊 Ver Tabla
                     </button>
-                    <button onclick="cambiarVista('historial')" class="px-4 py-2 text-sm font-medium rounded-md transition-colors text-gray-700 hover:bg-gray-100 focus:bg-gray-200" id="btn-ver-historial">
-                        📝 Historial y Borrar
+                    <button onclick="cambiarVista('historial')" id="btn-ver-historial" class="px-5 py-2.5 text-sm font-medium rounded-lg transition-all text-white hover:bg-white/20 hover:cursor-pointer">
+                        📝 Historial
                     </button>
-                    <button onclick="cambiarVista('formulario')" class="px-4 py-2 text-sm font-medium rounded-md text-white bg-slate-900 hover:bg-slate-800 shadow-sm" id="btn-ver-form">
+                    <button onclick="cambiarVista('formulario')" class="px-4 py-2 text-sm font-medium rounded-md text-black bg-amber-400 hover:bg-amber-500 shadow-sm hover:cursor-pointer " id="btn-ver-form">
+
                         + Registrar Pago
+
                     </button>
                 </div>
             </div>
-            <!-- Tabla -->
-            <div id="vista-tabla" class="vista-section bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all duration-300">
+
+            <div id="vista-tabla" class="vista-section bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden transition-all duration-300">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left">
                         <thead class="bg-gray-50/50 border-b border-gray-200">
                             <tr>
                                 <th class="py-4 pl-6 pr-3 font-semibold text-gray-500 sticky left-0 bg-gray-50 z-10 border-r">Familia</th>
-                                {mesesNombre.map(mes => <th class="px-2 py-4 text-center text-gray-400 text-xs uppercase">{mes}</th>)}
-                                <th class="px-4 py-4 text-center text-gray-500 sticky border-l bg-gray-50">Pagado</th>
-                                <th class="px-4 py-4 text-center text-red-600 bg-red-50/30">Deuda</th>
+                                {mesesNombre.map(mes => <th class="px-2 py-4 text-center text-gray-400 text-xs uppercase font-bold">{mes}</th>)}
+                                <th class="px-4 py-4 text-center text-gray-600 font-bold sticky border-l bg-gray-50/80">Pagado</th>
+                                <th class="px-4 py-4 text-center text-red-600 font-bold bg-red-50/30">Deuda</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 bg-white">
                             {reporte.map(fila => (
-                                <tr class="hover:bg-gray-50/60">
-                                    <td class="py-4 pl-6 pr-3 font-medium text-gray-900 sticky left-0 bg-white border-r">{fila.nombre}</td>
+                                <tr class="hover:bg-blue-50/30 transition-colors">
+                                    <td class="py-4 pl-6 pr-3 font-medium text-gray-900 sticky left-0 bg-white border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">{fila.nombre}</td>
                                     {fila.meses.map(m => (
                                         <td class="px-2 py-4 text-center font-mono text-xs">
-                                            {m > 0 ? <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">${m.toLocaleString('es-CL')}</span> : <span class="text-gray-300">•</span>}
+                                            {m > 0 ? <span class="text-emerald-700 font-bold bg-emerald-100/50 px-2 py-1 rounded-md shadow-sm border border-emerald-100">${m.toLocaleString('es-CL')}</span> : <span class="text-gray-200">•</span>}
                                         </td>
                                     ))}
-                                    <td class="px-4 py-4 font-mono text-center bg-gray-50/30 font-bold sticky bg-white border-l ">${fila.totalPagado.toLocaleString('es-CL')}</td>
-                                    <td class="px-4 py-4 font-mono text-center text-red-600">${fila.deudaActual.toLocaleString('es-CL')}</td>
+                                    <td class="px-4 py-4 font-mono text-center bg-gray-50/50 font-bold sticky border-l text-gray-700">${fila.totalPagado.toLocaleString('es-CL')}</td>
+                                    <td class="px-4 py-4 font-mono text-center">
+                                        {fila.deudaActual > 0 
+                                            ? <span class="bg-red-100 text-red-700 px-2 py-1 rounded font-bold text-xs">${fila.deudaActual.toLocaleString('es-CL')}</span>
+                                            : <span class="text-green-600 font-bold text-xs">✓ Al día</span>
+                                        }
+                                    </td>
                                 </tr>
                             ))}
-                            
                         </tbody>
                         <tfoot>
-                            <tr class="bg-gray-50/50 border-t border-gray-200">
-                                <th class="py-4 pl-6 pr-3 font-bold  sticky left-0 bg-gray-50 border-r">TOTAL</th>
-                                {totalesPorMes.map(totalMes => (
-                                    <th class="px-2 py-4 text-center text-gray-800 font-bold text-xs">
-                                        {totalMes > 0 ? `$${totalMes.toLocaleString('es-CL')}` : '-'}
+                            <tr class="bg-gray-100 border-t-2 border-gray-200">
+                                <th class="py-4 pl-6 pr-3 font-black text-gray-800 sticky left-0 bg-gray-100 border-r">TOTALES</th>
+                                {totalesPorMes.map(total => (
+                                    <th class="px-2 py-4 text-center text-gray-500 font-medium text-xs">
+                                        {total > 0 ? `$${total.toLocaleString('es-CL')}` : '-'}
                                     </th>
                                 ))}
-
-                                <th class="px-4 py-4 text-center font-bold sticky border-l bg-gray-50">${granTotalPagado.toLocaleString('es-CL')}</th>
-                                <th class="px-4 py-4 text-center text-red-600 font-semibold bg-red-50/30">${granTotalDeuda.toLocaleString('es-CL')}</th>
+                                <th class="px-4 py-4 text-center font-black text-gray-800 sticky border-l bg-gray-100">${granTotalPagado.toLocaleString('es-CL')}</th>
+                                <th class="px-4 py-4 text-center text-red-600 font-black bg-red-50">${granTotalDeuda.toLocaleString('es-CL')}</th>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
             </div>
-            <!-- Historial de pagos -->
-            <div id="vista-historial" class="vista-section hidden bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 class="text-lg font-bold text-gray-800 mb-4">Historial de Transacciones (Últimos movimientos)</h2>
-                <div class="overflow-hidden rounded-lg border border-gray-200">
+
+            <div id="vista-historial" class="vista-section hidden bg-white rounded-2xl shadow-xl border border-gray-200 p-8 min-h-[500px]">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    ⏱️ Historial de Transacciones
+                </h2>
+                <div class="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Familia</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acción</th>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Fecha</th>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Familia</th>
+                                <th class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Monto</th>
+                                <th class="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Acción</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
+                        <tbody class="bg-white divide-y divide-gray-100">
                             {historialPagos.map(pago => (
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{pago.fecha}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{pago.familia_nombre}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-green-600">$ {pago.monto.toLocaleString('es-CL')}</td>
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(pago.fecha).toLocaleDateString()}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{pago.familia_nombre}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-emerald-600 font-bold bg-emerald-50/30">$ {pago.monto.toLocaleString('es-CL')}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-center">
                                         <form method="POST">
                                             <input type="hidden" name="accion" value="eliminar" />
                                             <input type="hidden" name="pago_id" value={pago.id} />
-                                            <button onclick="return confirm('¿Borrar este pago? Esta acción recalculará la deuda.')" class="text-red-600 hover:text-red-900 text-xs font-bold bg-red-50 px-3 py-1 rounded hover:bg-red-100 transition">
+                                            <button onclick="return confirm('¿Borrar este pago?')" class="text-red-500 hover:text-white border border-red-200 hover:bg-red-500 text-xs font-bold px-3 py-1.5 rounded-lg transition-all shadow-sm">
                                                 Eliminar
                                             </button>
                                         </form>
@@ -207,30 +202,34 @@ const mesesNombre = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Se
                         </tbody>
                     </table>
                 </div>
-                <p class="text-xs text-gray-500 mt-4">* Para editar un pago, elimínalo y regístralo nuevamente.</p>
             </div>
 
-            <div id="vista-formulario" class="vista-section hidden max-w-xl mx-auto mt-8">
-                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
-                    <h2 class="text-xl font-bold text-gray-900 mb-6">Registrar Nuevo Pago</h2>
-                    <form method="POST" class="space-y-5">
-                        <input type="hidden" name="accion" value="crear" /> <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Familia</label>
-                            <select name="familia_id" class="block w-full rounded-lg border-gray-300 shadow-sm p-2.5 border">
+            <div id="vista-formulario" class="vista-section hidden max-w-2xl mx-auto mt-10">
+                <div class="bg-white rounded-2xl shadow-2xl border border-gray-100 p-10 relative overflow-hidden">
+                    
+                    
+                    <h2 class="text-2xl font-bold text-gray-900 mb-8 text-center">Registrar Nuevo Pago</h2>
+                    
+                    <form method="POST" class="space-y-6">
+                        <input type="hidden" name="accion" value="crear" /> 
+                        
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Familia</label>
+                            <select name="familia_id" class="block w-full rounded-xl border-gray-300 bg-gray-50 focus:bg-white shadow-sm p-3 border focus:ring-2 focus:ring-blue-500 outline-none transition-all">
                                 {familias.map(f => <option value={f.id}>{f.nombre}</option>)}
                             </select>
                         </div>
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 gap-6">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Mes a pagar</label>
-                                <input type="month" name="mes_pago" value={`${ANIO}-${String(MES_ACTUAL_INDEX + 1).padStart(2, '0')}`} class="block w-full rounded-lg border-gray-300 shadow-sm p-2.5 border" />
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Mes</label>
+                                <input type="month" name="mes_pago" value={`${ANIO}-${String(MES_ACTUAL_INDEX + 1).padStart(2, '0')}`} class="block w-full rounded-xl border-gray-300 bg-gray-50 focus:bg-white shadow-sm p-3 border focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Monto ($)</label>
-                                <input type="number" name="monto" placeholder="15000" class="block w-full rounded-lg border-gray-300 shadow-sm p-2.5 border" />
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Monto ($)</label>
+                                <input type="number" name="monto" placeholder="15000" value=15000 class="block w-full rounded-xl border-gray-300 bg-gray-50 focus:bg-white shadow-sm p-3 border focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
                             </div>
                         </div>
-                        <button type="submit" class="w-full py-3 px-4 rounded-lg text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 transition">
+                        <button type="submit" class="w-full py-4 px-4 rounded-xl text-base font-bold text-black bg-amber-400 hover:bg-amber-500 hover:cursor-pointer shadow-lg transform  transition-all">
                             Guardar Pago
                         </button>
                     </form>
@@ -241,27 +240,33 @@ const mesesNombre = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Se
     </div>
 </Layout>
 
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+    .font-anton { font-family: 'Anton', sans-serif; }
+</style>
+
 <script is:inline>
-    // cambiar pestañas
     function cambiarVista(nombreVista) {
-        // Ocultar todas las secciones
+        // 1. Ocultar todas
         document.querySelectorAll('.vista-section').forEach(el => el.classList.add('hidden'));
-        
-        // Mostrar la seleccionada
+        // 2. Mostrar seleccionada
         document.getElementById(`vista-${nombreVista}`).classList.remove('hidden');
 
-        // Restablecer estilos
-        const btns = ['btn-ver-tabla', 'btn-ver-historial', 'btn-ver-form'];
+        // 3. Resetear botones (Estilo transparente)
+        const btns = ['btn-ver-tabla', 'btn-ver-historial'];
         btns.forEach(id => {
             const btn = document.getElementById(id);
-            btn.classList.remove('bg-gray-200', 'font-bold');
-            if(id === 'btn-ver-form') { /* Mantener estilo dark */ }
-            else { btn.classList.add('hover:bg-gray-100'); }
+            // Reset base classes
+            btn.className = "px-5 py-2.5 text-sm font-medium rounded-lg transition-all text-white hover:bg-white/20";
         });
 
-        // Activar el actual 
-        if (nombreVista !== 'formulario') {
-             document.getElementById(`btn-ver-${nombreVista}`).classList.add('bg-gray-200', 'font-bold');
+        // 4. Activar botón actual (Estilo sólido blanco)
+        const btnActivo = document.getElementById(`btn-ver-${nombreVista}`);
+        if(nombreVista === 'formulario') {
+             // El formulario ya tiene estilo especial, lo mantenemos o forzamos
+             btnActivo.className = "px-5 py-2.5 text-sm font-bold rounded-lg bg-white text-[#264E8F] shadow-sm hover:bg-gray-100 transition-all";
+        } else {
+             btnActivo.className = "px-5 py-2.5 text-sm font-bold rounded-lg bg-white text-[#264E8F] shadow-sm";
         }
     }
 </script>
