@@ -24,7 +24,7 @@ db.exec(`
   -- TABLA 3: GASTOS (Luz, agua, reparaciones - Sin vincular a familias)
   CREATE TABLE IF NOT EXISTS gastos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    categoria TEXT NOT NULL, -- Ej: "Luz", "Agua", "Mantenimiento"
+    categoria TEXT NOT NULL, -- Ej: "Luz", "Agua", "Gas", "Reparaciones"
     monto INTEGER NOT NULL,
     fecha DATE NOT NULL,
     descripcion TEXT

@@ -1,0 +1,317 @@
+---
+import Layout from '../layouts/Layout.astro';
+import db from '../db/client';
+
+const ANIO = 2025;
+
+// Mantenemos TU configuración exacta
+const CATEGORIAS_UI = [
+    { label: 'Luz', id: 'luz', layout: 'md:col-span-1 md:row-span-2'},
+    { label: 'Agua', id: 'agua', layout: 'md:col-span-1 md:row-span-2'},
+    { label: 'Gas', id: 'gas', layout: 'md:col-span-1 md:row-span-1'},
+    { label: 'Extras', id: 'extras', layout: 'md:col-span-1 md:row-span-1'}
+];
+
+
+// INTERFACES
+interface Gasto { id: number; categoria: string; monto: number; fecha: string; descripcion?: string; }
+
+// CRUD
+if (Astro.request.method ==="POST") {
+    const data = await Astro.request.formData();
+    const accion = data.get('accion');
+
+    if (accion === 'crear') {
+        const insert = db.prepare(`INSERT INTO gastos (categoria, monto, fecha, descripcion) VALUES (?, ?, ?, ?)`);
+        insert.run(
+            data.get('categoria'),
+            Number(data.get('monto')),
+            data.get('fecha'),
+            data.get('descripcion') || ''
+        );
+    }
+    if (accion === 'eliminar') {
+        db.prepare(`DELETE FROM gastos WHERE id = ?`).run(Number(data.get('id')));
+    }
+    return Astro.redirect('/gastos');
+}
+// Lectura
+const gastosRaw = db.prepare(`SELECT * FROM gastos WHERE strftime('%Y', fecha) = ? ORDER BY fecha DESC`).all(ANIO.toString()) as Gasto[];
+
+const resumen = CATEGORIAS_UI.map(cat => {
+
+    const catGasto = gastosRaw.filter(g => g.categoria.toLowerCase() === cat.label.toLowerCase());
+
+    const total = catGasto.reduce((acc, item) => acc + item.monto, 0);
+    return {...cat, total, items:catGasto};
+});
+
+---
+
+<Layout title="Gastos | Cabañas Pelluhue">
+    <div class="relative min-h-screen bg-gray-50 font-sans">
+        
+        <div class="fixed inset-0 z-0">
+        <img src="/img/cabaña.png" class="w-full h-full object-cover" alt="Fondo Cabañas" />
+        <div class="absolute inset-0 bg-[#17253E]/85 backdrop-blur-xl"></div>
+        </div>
+
+        <div class="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20">
+            
+            <div class="flex flex-col md:flex-row justify-between items-end mb-10">
+                <div>
+                    <h1 class="text-4xl font-anton mb-1 text-white tracking-wide uppercase">Gastos Operativos</h1>
+                    <p class="text-blue-100/80 text-lg font-light">Selecciona una categoría para ver el detalle mensual.</p>
+                </div>
+                <button onclick="toggleFormulario()" class="mt-6 md:mt-0 bg-amber-500 hover:bg-amber-600 text-slate-900 text-sm font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-amber-500/20 transition transform active:scale-95 flex items-center gap-2">
+                    <span>+</span> REGISTRAR GASTO
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                {resumen.map((item) => (
+                    <button 
+                        onclick={`mostrarDetalle('${item.id}')`}
+                        id={`btn-${item.id}`}
+                        class={`card-resumen group bg-white rounded-2xl p-6 text-left shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden focus:outline-none flex flex-col justify-between ${item.layout || 'md:col-span-1'}`}
+                    >
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h2 class="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1">{item.label}</h2>
+                                
+                                <span 
+                                    id={`monto-${item.id}`}
+                                    class="monto-numero text-3xl font-anton text-[#17253E] transition-colors"
+                                >
+                                    ${item.total.toLocaleString('es-CL')}
+                                </span>
+
+                            </div>
+                            </div>
+                            <p class="text-xs text-gray-400 font-medium">Ver historial completo &rarr;</p>
+                    </button>
+                ))}
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-xl overflow-hidden min-h-[300px] animate-fade-in relative">
+                
+                <div id="estado-vacio" class="absolute inset-0 flex flex-col items-center justify-center text-gray-300">
+                    <span class="text-5xl mb-4 opacity-50">👆</span>
+                    <p class="text-lg font-medium">Haz clic en una tarjeta para ver el detalle</p>
+                </div>
+
+                {resumen.map((grupo) => (
+                    <div id={`tabla-${grupo.id}`} class="hidden tabla-detalle">
+                        
+                        <div class="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <h3 class="text-xl font-bold text-[#17253E] flex items-center gap-2 capitalize">
+                                Historial de {grupo.label}
+                            </h3>
+                            <button onclick="cerrarDetalle()" class="text-gray-400 hover:text-red-500 transition text-sm font-semibold">
+                                Cerrar X
+                            </button>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                    <tr>
+                                        <th class="px-8 py-4 bg-white">Fecha</th>
+                                        <th class="px-8 py-4 bg-white">Descripción</th>
+                                        <th class="px-8 py-4 bg-white text-right">Monto</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-sm text-gray-600 divide-y divide-gray-50">
+                                    {grupo.items.length === 0 && (
+                                        <tr> <td colspan="4" class="px-8 py-6 text-center italic text-gray-400">Sin Movimientos</td></tr>
+                                    )}
+                                    {grupo.items.map((gasto) => (
+                                        <tr>
+                                            <td class="px-8 py-4 font-medium text-[#17253E]">
+                                                {new Date(gasto.fecha).toLocaleDateString('es-CL')}
+                                            </td>
+                                            <td class="px-8 py-4">{gasto.descripcion || '-'}</td>
+                                            <td class="px-8 py-4 text-right font-mono font-bold text-[#17253E]">
+                                                ${gasto.monto.toLocaleString('es-CL')}
+                                            </td>
+                                            <td class="px-8 py-4 text-center">
+                                                <form method="POST">
+                                                    <input type="hidden" name="accion" value="eliminar" />
+                                                    <input type="hidden" name="id" value={gasto.id} />
+                                                    <button onclick="return confirm('¿Borrar?')" class="text-red-300 hover:text-red-600 font-bold">✕</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ))} 
+            </div>
+
+        </div>
+        <div id="modal-formulario" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <div class="absolute inset-0 bg-[#17253E]/60 backdrop-blur-sm transition-opacity" onclick="toggleFormulario()"></div>
+
+            <div class="absolute inset-0 z-10 overflow-y-auto">
+                <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+                    
+                    <div class="relative transform overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-white/50">
+                        
+                        <div class="bg-gray-50 px-4 py-5 sm:px-8 sm:py-6 border-b border-gray-100 flex justify-between items-center">
+                            <div>
+                                <h3 class="text-xl font-anton text-[#17253E] tracking-wide uppercase" id="modal-title">Nuevo Gasto</h3>
+                                <p class="text-sm text-gray-500">Registra un nuevo movimiento.</p>
+                            </div>
+                            <button onclick="toggleFormulario()" class="text-gray-400 hover:text-gray-600 font-bold p-2 hover:bg-gray-200 rounded-full transition">✕</button>
+                        </div>
+
+                        <div class="px-4 py-6 sm:p-8">
+                            <form method="POST" class="space-y-5">
+                                <input type="hidden" name="accion" value="crear" />
+                                
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Categoría</label>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        {/* Generamos botones de radio visuales para que sea fácil elegir */}
+                                        {CATEGORIAS_UI.map((cat) => (
+                                            <label class="cursor-pointer">
+                                                <input type="radio" name="categoria" value={cat.label} class="peer sr-only" required />
+                                                <div class="rounded-xl border-2 border-gray-100 bg-white p-3 text-center transition-all peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:text-amber-700 hover:bg-gray-50">
+                                                    
+                                                    <div class="text-xs font-bold">{cat.label}</div>
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-5">
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Fecha</label>
+                                        <input 
+                                            type="date" 
+                                            name="fecha" 
+                                            required 
+                                            value={new Date().toISOString().split('T')[0]} 
+                                            class="block w-full rounded-xl border-gray-200 bg-gray-50 p-3 text-sm font-bold text-gray-900 focus:border-amber-500 focus:ring-amber-500 outline-none transition-all" 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Monto ($)</label>
+                                        <input 
+                                            type="number" 
+                                            name="monto" 
+                                            required 
+                                            placeholder="Ej: 15000" 
+                                            class="block w-full rounded-xl border-gray-200 bg-gray-50 p-3 text-sm font-bold text-gray-900 focus:border-amber-500 focus:ring-amber-500 outline-none transition-all" 
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Descripción (Opcional)</label>
+                                    <input 
+                                        type="text" 
+                                        name="descripcion" 
+                                        placeholder="Ej: Pago CGE Enero" 
+                                        class="block w-full rounded-xl border-gray-200 bg-gray-50 p-3 text-sm font-medium text-gray-900 focus:border-amber-500 focus:ring-amber-500 outline-none transition-all" 
+                                    />
+                                </div>
+
+                                <div class="pt-4">
+                                    <button type="submit" class="w-full rounded-xl bg-[#17253E] px-4 py-4 text-sm font-bold text-white shadow-lg hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 transition-all transform active:scale-95">
+                                        GUARDAR GASTO
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</Layout>
+
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+    .font-anton { font-family: 'Anton', sans-serif; }
+
+    /* Animación suave al aparecer la tabla */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+        animation: fadeIn 0.4s ease-out;
+    }
+    
+    /* Clase para la card activa (borde ámbar) */
+    .card-active {
+        ring: 2px solid #F59E0B; /* amber-500 */
+        transform: translateY(-4px);
+    }
+</style>
+
+<script is:inline>
+
+    function toggleFormulario() {
+        const modal = document.getElementById('modal-formulario');
+        modal.classList.toggle('hidden');
+    }
+
+    function mostrarDetalle(id) {
+        // 1. Ocultar estado vacío y tablas (Igual que antes)
+        document.getElementById('estado-vacio').classList.add('hidden');
+        document.querySelectorAll('.tabla-detalle').forEach(el => el.classList.add('hidden'));
+        
+        // 2. Mostrar la tabla seleccionada (Igual que antes)
+        const tabla = document.getElementById(`tabla-${id}`);
+        if(tabla) tabla.classList.remove('hidden');
+
+        // 3. RESET VISUAL (Devolver todos a blanco y azul)
+        // Reseteamos las cards
+        document.querySelectorAll('.card-resumen').forEach(el => {
+            el.classList.remove('ring-2', 'ring-amber-500', 'bg-amber-50/10');
+            el.classList.add('bg-white');
+        });
+        // Reseteamos los números a Azul Oscuro
+        document.querySelectorAll('.monto-numero').forEach(el => {
+            el.classList.remove('text-amber-600'); // Quitamos naranja
+            el.classList.add('text-[#17253E]');   // Volvemos a azul
+        });
+        
+        // 4. ACTIVAR CARD SELECCIONADA
+        const btnActivo = document.getElementById(`btn-${id}`);
+        btnActivo.classList.remove('bg-white');
+        btnActivo.classList.add('ring-2', 'ring-amber-500', 'bg-amber-50/10');
+
+        // 5. ACTIVAR NUMERO
+        const montoActivo = document.getElementById(`monto-${id}`);
+        if (montoActivo) {
+            montoActivo.classList.remove('text-[#17253E]'); // Quita azul
+            montoActivo.classList.add('text-amber-600');    // Pone naranja
+        }
+        
+    }
+
+    function cerrarDetalle() {
+        // ... lógica de ocultar tablas ...
+        document.getElementById('estado-vacio').classList.remove('hidden');
+        document.querySelectorAll('.tabla-detalle').forEach(el => el.classList.add('hidden'));
+
+        // Resetear estilos de cards
+        document.querySelectorAll('.card-resumen').forEach(el => {
+            el.classList.remove('ring-2', 'ring-amber-500', 'bg-amber-50/10');
+            el.classList.add('bg-white');
+        });
+
+        // Resetear estilos de números (Volver todos a azul)
+        document.querySelectorAll('.monto-numero').forEach(el => {
+            el.classList.remove('text-amber-600');
+            el.classList.add('text-[#17253E]');
+        });
+    }
+</script>

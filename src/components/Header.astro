@@ -6,7 +6,7 @@ const activeClass = "text-amber-400 font-semibold after:scale-x-100";
 const inactiveClass = "text-slate-200 hover:text-amber-400 after:scale-x-0 hover:after:scale-x-100";
 ---
 
-<header class="fixed top-0 left-0 w-full z-50">
+<header id="navbar-capsula" class="fixed top-0 left-0 w-full z-50">
   <div class="max-w-6xl mx-auto px-6 h-22 flex justify-between items-center">
     
     <a href="/" class="text-3xl font-anton tracking-tight uppercase text-amber-400 hover:opacity-80 transition">
@@ -37,3 +37,24 @@ const inactiveClass = "text-slate-200 hover:text-amber-400 after:scale-x-0 hover
     @import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
     .font-anton { font-family: 'Anton', sans-serif; }
 </style>
+
+
+<script is:inline>
+  // Detectamos el scroll
+  window.addEventListener('scroll', () => {
+    const nav = document.getElementById('navbar-capsula');
+    
+    if (window.scrollY > 50) {
+      // 1. CUANDO BAJAS (SCROLL):
+      // Quitamos la transparencia ligera
+      nav.classList.remove('bg-slate-900/60');
+      // Ponemos un fondo SOLIDO (o casi sólido) azul oscuro para tapar el texto
+      nav.classList.add('bg-[#17253E]', 'shadow-black/50');
+    } else {
+      // 2. CUANDO VUELVES ARRIBA:
+      // Restauramos la transparencia original
+      
+      nav.classList.remove('bg-[#17253E]', 'shadow-black/50');
+    }
+  });
+</script>
