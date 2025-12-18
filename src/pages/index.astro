@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { ANIO } from '../config';
 ---
 
 <Layout title="Inicio | Cabañas Pelluhue">
@@ -20,7 +21,7 @@ import Layout from '../layouts/Layout.astro';
         <h1 class="titulo-impacto flex flex-col items-start leading-none select-none">
             <span class="text-white">CABAÑAS</span>
             <span class="text-white -mt-2 md:-mt-4">PELLUHUE</span> <span class="text-transparent stroke-text mt-2 opacity-80">
-                {new Date().getFullYear()+1}
+                {ANIO}
             </span>
         </h1>
         
@@ -32,7 +33,7 @@ import Layout from '../layouts/Layout.astro';
             </a>
 
             <a href="/gastos" 
-               class="px-8 py-3 bg-cyan-400 text-slate-900 font-bold rounded-full hover:bg-cyan-300 transition-all transform hover:scale-105 active:scale-95 shadow-lg shadow-cyan-400/20">
+               class="px-8 py-3 bg-[#2D7FB0] text-[#17253E] text-slate-900 font-bold rounded-full hover:bg-cyan-300 transition-all transform hover:scale-105 active:scale-95 shadow-lg shadow-cyan-400/20">
                Ver Gastos
             </a>
 

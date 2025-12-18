@@ -1,0 +1,156 @@
+---
+import Layout from '../layouts/Layout.astro';
+import db from '../db/client';
+
+import {ANIO} from '../config';
+
+// 1. OBTENER TOTALES (INGRESOS)
+// Sumamos todos los pagos del año
+const totalIngresos = db.prepare(`
+    SELECT SUM(monto) as total 
+    FROM pagos 
+    WHERE strftime('%Y', fecha) = ?
+`).get(ANIO.toString()).total || 0;
+
+// 2. OBTENER TOTALES (EGRESOS)
+// Sumamos todos los gastos del año
+const totalEgresos = db.prepare(`
+    SELECT SUM(monto) as total 
+    FROM gastos 
+    WHERE strftime('%Y', fecha) = ?
+`).get(ANIO.toString()).total || 0;
+
+// 3. CALCULAR CAJA
+const saldoCaja = totalIngresos - totalEgresos;
+
+// 4. MOVIMIENTOS RECIENTES (MIXTO)
+// Usamos UNION ALL para juntar Pagos y Gastos en una sola lista ordenada por fecha
+const movimientos = db.prepare(`
+    SELECT 
+        id, 
+        fecha, 
+        monto, 
+        'INGRESO' as tipo, 
+        (SELECT nombre FROM familias WHERE id = p.familia_id) as descripcion 
+    FROM pagos p
+    WHERE strftime('%Y', fecha) = ?
+    
+    UNION ALL
+    
+    SELECT 
+        id, 
+        fecha, 
+        monto, 
+        'EGRESO' as tipo, 
+        descripcion 
+    FROM gastos
+    WHERE strftime('%Y', fecha) = ?
+
+    ORDER BY fecha DESC
+    LIMIT 10
+`).all(ANIO.toString(), ANIO.toString());
+
+---
+
+<Layout title="Resumen Financiero">
+    <div class="relative min-h-screen bg-gray-50 font-sans">
+        
+        <div class="fixed inset-0 z-0">
+            <img src="/img/cabaña.png" class="w-full h-full object-cover" alt="Fondo" />
+            <div class="absolute inset-0 bg-[#17253E]/90 backdrop-blur-xl"></div>
+        </div>
+
+        <div class="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20">
+            
+            <div class="mb-10">
+                <h1 class="text-4xl font-anton mb-1 text-white tracking-wide uppercase">Estado de Caja {ANIO}</h1>
+                <p class="text-blue-100/80 text-lg font-light">Visión general de ingresos y egresos.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                
+                <div class="bg-white rounded-3xl p-8 shadow-lg relative overflow-hidden group">
+                    <div class="absolute right-0 top-0 p-3 opacity-30">
+                        <span class="text-8xl">💰</span>
+                    </div>
+                    <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mb-2">Total Ingresos</p>
+                    <p class="text-4xl font-anton text-emerald-600 tracking-tight">
+                        +${totalIngresos.toLocaleString('es-CL')}
+                    </p>
+                </div>
+
+                <div class="bg-white rounded-3xl p-8 shadow-lg relative overflow-hidden group">
+                    <div class="absolute right-0 top-0 p-3 opacity-30">
+                        <span class="text-8xl">📉</span>
+                    </div>
+                    <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mb-2">Total Egresos</p>
+                    <p class="text-4xl font-anton text-red-500 tracking-tight">
+                        -${totalEgresos.toLocaleString('es-CL')}
+                    </p>
+                </div>
+
+                <div class={`rounded-3xl p-8 shadow-xl relative overflow-hidden text-white ${saldoCaja >= 0 ? 'bg-amber-400' : 'bg-red-900'}`}>
+                    <div class="absolute right-0 top-0  opacity-30 pb-30 pr-2">
+                        <span class="text-8xl">💳</span>
+                    </div>
+                    <p class="text-[#17253E] text-xs font-bold uppercase tracking-widest mb-2">Saldo en Caja</p>
+                    <p class="text-5xl text-[#17253E] font-anton tracking-tight">
+                        ${saldoCaja.toLocaleString('es-CL')}
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+                <div class="px-8 py-6 border-b border-gray-100 bg-gray-50/50">
+                    <h3 class="text-xl font-bold text-[#17253E]">Últimos Movimientos</h3>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="text-xs font-bold text-gray-400 uppercase bg-white border-b border-gray-100">
+                            <tr>
+                                <th class="px-8 py-4">Fecha</th>
+                                <th class="px-8 py-4">Tipo</th>
+                                <th class="px-8 py-4">Descripción</th>
+                                <th class="px-8 py-4 text-right">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">
+                            {movimientos.map((mov: any) => (
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-8 py-4 font-medium text-gray-600">
+                                        {new Date(mov.fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })}
+                                    </td>
+                                    <td class="px-8 py-4">
+                                        <span class={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide ${
+                                            mov.tipo === 'INGRESO' 
+                                            ? 'bg-emerald-100 text-emerald-700' 
+                                            : 'bg-red-100 text-red-700'
+                                        }`}>
+                                            {mov.tipo}
+                                        </span>
+                                    </td>
+                                    <td class="px-8 py-4 text-gray-800 font-medium">
+                                        {mov.tipo === 'INGRESO' ? 'Pago de ' : ''}{mov.descripcion || 'Sin descripción'}
+                                    </td>
+                                    <td class={`px-8 py-4 text-right font-mono font-bold ${
+                                        mov.tipo === 'INGRESO' ? 'text-emerald-600' : 'text-red-500'
+                                    }`}>
+                                        {mov.tipo === 'INGRESO' ? '+' : '-'}${mov.monto.toLocaleString('es-CL')}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</Layout>
+
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+    .font-anton { font-family: 'Anton', sans-serif; }
+</style>

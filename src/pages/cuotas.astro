@@ -1,10 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import db from '../db/client';
+import { ANIO, VALOR_CUOTA_ANUAL } from '../config';
 
 // --- CONFIGURACIÓN ---
-const ANIO = 2025;
-const CUOTA_ANUAL = 180000;
+const CUOTA_ANUAL = VALOR_CUOTA_ANUAL;
 const MES_ACTUAL_INDEX = new Date().getMonth(); 
 const CUOTA_MENSUAL = CUOTA_ANUAL / 12; 
 

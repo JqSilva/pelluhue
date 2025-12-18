@@ -2,7 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import db from '../db/client';
 
-const ANIO = 2025;
+import { ANIO } from '../config';
 
 const CATEGORIAS_UI = [
     { label: 'Total',  id: 'total',  layout: 'md:col-span-3 md:row-span-1'}, 
@@ -76,13 +76,13 @@ const resumen = CATEGORIAS_UI.map(cat => {
                     // --- 1. TARJETA ESPECIAL DE TOTAL ---
                     if (item.id === 'total') {
                         return (
-                            <div class={`bg-[#17253E] rounded-2xl p-6 shadow-xl border border-white/10 flex flex-col justify-center relative overflow-hidden ${item.layout}`}>
-                                <div class="absolute right-0 top-0 h-full w-1/2 bg-gradient-to-l from-blue-500/10 to-transparent"></div>
+                            <div class={`bg-amber-400 rounded-2xl p-6 shadow-xl border border-white/10 flex flex-col justify-center relative overflow-hidden ${item.layout}`}>
+                                <div class="absolute right-0 top-0 h-full w-1/2"></div>
                                 
                                 <div class="relative z-10 flex justify-between items-center">
                                     <div>
-                                        <h2 class="text-blue-200 text-sm font-bold uppercase tracking-widest mb-1">Gasto Anual Total</h2>
-                                        <span class="text-5xl font-anton text-white tracking-tight">
+                                        <h2 class="text-[#17253E] text-sm font-bold uppercase tracking-widest mb-1 ">Gasto Anual Total</h2>
+                                        <span class="text-5xl font-anton text-[#17253E] tracking-tight">
                                             ${item.total.toLocaleString('es-CL')}
                                         </span>
                                     </div>
